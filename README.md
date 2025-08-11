@@ -1,5 +1,5 @@
 # where-to-eat
-Pick a random place to eat.
+Pick a random place to eat. Share the place with your friends. Get directions.
 
 ## Bugs and Enhancements
 
@@ -7,9 +7,10 @@ Pick a random place to eat.
 1. Focus on user name input is causing zoom, implement meta zoom fix
 
 ### Enhancements
-1. Allow users to add new places to eat
-2. Remove shuffle, it's not needed, right?
-3. Remove Enable/Disable
-4. Change "Pick for Me" to somehting better
-5. Fix lable on no repeats checkbox
-6. increase contrast on name entry.
+1. Allow users to add new places to eat.
+2. Add menu links.
+3. Remove shuffle, it's not needed, right?
+4. Remove Enable/Disable.
+5. Change "Pick for Me" to somehting better.
+6. Fix lable on no repeats checkbox.
+7. increase contrast on name entry.
