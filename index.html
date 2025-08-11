@@ -4,9 +4,9 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
-        <title>Dinner Decider</title>
+        <title>Where to Eat</title>
         <style>
-            /* Root variables */
+            /* Colors & base */
             :root {
                 --bg: #0e0e11;
                 --card: #17171c;
@@ -17,7 +17,6 @@
                 --border: #22222a;
             }
 
-            /* Page base */
             html,
             body {
                 height: 100%;
@@ -27,13 +26,12 @@
                 margin: 0;
                 background: var(--bg);
                 color: var(--ink);
-                font: 16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+                font: 16px/1.45 system-ui, -apple-system, Segoe UI, Inter, Roboto, Arial, sans-serif;
                 display: grid;
                 place-items: center;
                 padding: 24px;
             }
 
-            /* App container */
             .app {
                 width: 100%;
                 max-width: 720px;
@@ -51,6 +49,7 @@
                 justify-content: space-between;
                 gap: 12px;
                 margin-bottom: 14px;
+                flex-wrap: wrap;
             }
 
             .title {
@@ -59,7 +58,24 @@
                 letter-spacing: .2px;
             }
 
-            /* Controls row */
+            .name-wrap {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--muted);
+                font-size: 14px;
+            }
+
+            .name-wrap input {
+                background: #0f0f14;
+                color: var(--ink);
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                padding: 8px 10px;
+                min-width: 160px;
+            }
+
+            /* Controls */
             .controls {
                 display: flex;
                 flex-wrap: wrap;
@@ -83,8 +99,9 @@
                 background: #14141a;
             }
 
-            .btn:active {
-                transform: translateY(1px);
+            .btn:disabled {
+                opacity: .55;
+                cursor: not-allowed;
             }
 
             .btn.primary {
@@ -107,7 +124,7 @@
                 color: #ffb3b3;
             }
 
-            /* Places list */
+            /* List */
             .list {
                 display: grid;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -121,7 +138,6 @@
                 }
             }
 
-            /* Place item */
             .item {
                 display: flex;
                 align-items: center;
@@ -162,7 +178,7 @@
                 color: #d7d7de;
             }
 
-            /* Result card */
+            /* Result */
             .result {
                 margin-top: 16px;
                 padding: 16px;
@@ -188,14 +204,6 @@
                 will-change: transform;
             }
 
-            /* Footnote/help */
-            .meta {
-                margin-top: 10px;
-                color: var(--muted);
-                font-size: 13px;
-            }
-
-            /* History */
             .history {
                 margin-top: 12px;
                 color: var(--muted);
@@ -212,28 +220,38 @@
                 border-radius: 999px;
             }
 
-            /* Switch row */
-            .switch {
-                display: flex;
-                align-items: center;
-                gap: 8px;
+            .meta {
+                margin-top: 10px;
                 color: var(--muted);
-                font-size: 14px;
+                font-size: 13px;
             }
 
-            .switch input {
-                width: 38px;
-                height: 22px;
-                accent-color: var(--accent);
+            /* Shared banner */
+            .shared {
+                margin-bottom: 12px;
+                padding: 12px 14px;
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                background: #101417;
+            }
+
+            .shared strong {
+                font-weight: 800;
             }
         </style>
     </head>
 
     <body>
         <div class="app" role="application" aria-label="Dinner Decider">
+            <div id="sharedBanner" class="shared" style="display:none;"></div>
+
             <div class="header">
                 <div class="title">Dinner Decider</div>
-                <label class="switch" title="Avoid repeats until all enabled are used">
+                <div class="name-wrap">
+                    <label for="userName">Your name</label>
+                    <input id="userName" type="text" placeholder="e.g., Alex" />
+                </div>
+                <label class="name-wrap" title="Avoid repeats until all enabled are used">
                     <input type="checkbox" id="noRepeats" />
                     <span>No repeats cycle</span>
                 </label>
@@ -241,6 +259,7 @@
 
             <div class="controls">
                 <button class="btn primary" id="decideBtn" aria-live="polite">Pick for me</button>
+                <button class="btn" id="shareBtn" title="Share the last pick" disabled>Share last pick</button>
                 <button class="btn" id="shuffleBtn" title="Randomize list order">Shuffle list</button>
                 <button class="btn ghost" id="enableAllBtn" title="Enable all places">Enable all</button>
                 <button class="btn ghost" id="disableAllBtn" title="Disable all places">Disable all</button>
@@ -269,18 +288,19 @@
                 "Cleats"
             ];
 
-            /* ===== State & Storage ===== */
+            /* ===== Storage helpers ===== */
             const STORE_KEY = "dinner-decider-v1";
-            const loadState = () => {
-                try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; }
-            };
-            const saveState = (s) => localStorage.setItem(STORE_KEY, JSON.stringify(s));
+            function loadState() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; } }
+            function saveState(s) { localStorage.setItem(STORE_KEY, JSON.stringify(s)); }
+            const NAME_KEY = "dinner-decider-name";
 
+            /* ===== State ===== */
             const state = {
-                places: [],          // [{name, enabled}]
-                cycleBag: [],        // names left in current no-repeat cycle
-                history: [],         // last n picks
-                noRepeats: true
+                places: [],
+                cycleBag: [],
+                history: [],
+                noRepeats: true,
+                lastPick: null
             };
 
             /* ===== DOM ===== */
@@ -290,23 +310,21 @@
             const historyEl = $("historyRow");
             const noRepeatsEl = $("noRepeats");
             const decideBtn = $("decideBtn");
+            const shareBtn = $("shareBtn");
             const shuffleBtn = $("shuffleBtn");
             const enableAllBtn = $("enableAllBtn");
             const disableAllBtn = $("disableAllBtn");
             const resetCycleBtn = $("resetCycleBtn");
+            const userNameEl = $("userName");
+            const sharedBanner = $("sharedBanner");
 
-            /* ===== Utilities ===== */
+            /* ===== Utils ===== */
             const randInt = (n) => Math.floor(Math.random() * n);
             const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = randInt(i + 1);[arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
-
-            function currentEnabledNames() {
-                return state.places.filter(p => p.enabled).map(p => p.name);
-            }
-
+            function currentEnabledNames() { return state.places.filter(p => p.enabled).map(p => p.name); }
             function ensureCycleBag() {
                 if (!state.noRepeats) { state.cycleBag = []; return; }
                 const enabled = currentEnabledNames();
-                // If bag is empty or has names not in enabled anymore, rebuild
                 const missing = enabled.some(n => !state.cycleBag.includes(n));
                 const extra = state.cycleBag.some(n => !enabled.includes(n));
                 if (state.cycleBag.length === 0 || missing || extra) {
@@ -314,32 +332,23 @@
                     shuffle(state.cycleBag);
                 }
             }
-
             function pickName() {
                 const enabled = currentEnabledNames();
                 if (enabled.length === 0) return null;
-
                 if (state.noRepeats) {
                     ensureCycleBag();
-                    if (state.cycleBag.length === 0) { // rebuild when exhausted
-                        state.cycleBag = [...enabled];
-                        shuffle(state.cycleBag);
-                    }
-                    const name = state.cycleBag.splice(0, 1)[0];
-                    return name || null;
-                } else {
-                    return enabled[randInt(enabled.length)];
+                    if (state.cycleBag.length === 0) { state.cycleBag = [...enabled]; shuffle(state.cycleBag); }
+                    return state.cycleBag.splice(0, 1)[0] || null;
                 }
+                return enabled[randInt(enabled.length)];
             }
-
             function animateChoice(toText) {
-                // Simple “spin” effect
                 const spans = ["Thinking…", "Almost…", toText];
                 let i = 0;
                 const step = () => {
                     choiceEl.textContent = spans[i++];
                     choiceEl.style.transform = "scale(1.00)";
-                    choiceEl.offsetHeight; // reflow
+                    choiceEl.offsetHeight;
                     choiceEl.style.transition = "transform 220ms ease";
                     choiceEl.style.transform = "scale(1.06)";
                     if (i < spans.length) { setTimeout(step, i === 2 ? 70 : 240); }
@@ -347,6 +356,7 @@
                 step();
             }
 
+            /* ===== Rendering ===== */
             function renderList() {
                 listEl.innerHTML = "";
                 state.places.forEach((p, idx) => {
@@ -354,129 +364,127 @@
                     const wrap = document.createElement("div");
                     wrap.className = "item";
                     const cb = document.createElement("input");
-                    cb.type = "checkbox";
-                    cb.id = id;
-                    cb.checked = !!p.enabled;
+                    cb.type = "checkbox"; cb.id = id; cb.checked = !!p.enabled;
                     cb.addEventListener("change", () => {
                         p.enabled = cb.checked;
-                        // Remove from cycle bag if disabled
-                        if (!p.enabled) {
-                            state.cycleBag = state.cycleBag.filter(n => n !== p.name);
-                        }
+                        if (!p.enabled) { state.cycleBag = state.cycleBag.filter(n => n !== p.name); }
                         persist();
                     });
-
                     const label = document.createElement("label");
                     label.setAttribute("for", id);
                     const name = document.createElement("div");
-                    name.className = "name";
-                    name.textContent = p.name;
-
+                    name.className = "name"; name.textContent = p.name;
                     const map = document.createElement("a");
                     map.className = "map";
                     map.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(p.name);
-                    map.target = "_blank";
-                    map.rel = "noopener";
-                    map.textContent = "Maps";
-
-                    label.appendChild(name);
-                    label.appendChild(map);
-                    wrap.appendChild(cb);
-                    wrap.appendChild(label);
+                    map.target = "_blank"; map.rel = "noopener"; map.textContent = "Maps";
+                    label.appendChild(name); label.appendChild(map);
+                    wrap.appendChild(cb); wrap.appendChild(label);
                     listEl.appendChild(wrap);
                 });
             }
-
             function renderHistory() {
                 historyEl.innerHTML = "";
                 state.history.slice(-8).reverse().forEach(n => {
                     const t = document.createElement("span");
-                    t.className = "tag";
-                    t.textContent = n;
+                    t.className = "tag"; t.textContent = n;
                     historyEl.appendChild(t);
                 });
             }
-
             function persist() {
-                saveState({
-                    places: state.places,
-                    cycleBag: state.cycleBag,
-                    history: state.history,
-                    noRepeats: state.noRepeats
-                });
-                renderList();
-                renderHistory();
-                noRepeatsEl.checked = state.noRepeats;
+                saveState({ places: state.places, cycleBag: state.cycleBag, history: state.history, noRepeats: state.noRepeats, lastPick: state.lastPick });
+                renderList(); renderHistory(); noRepeatsEl.checked = state.noRepeats;
+                shareBtn.disabled = !state.lastPick;
             }
 
-            function decide() {
-                const name = pickName();
-                if (!name) {
-                    animateChoice("No places enabled");
-                    return;
+            /* ===== Share ===== */
+            function getUserName() {
+                const v = userNameEl.value.trim();
+                return v || "Someone";
+            }
+            function shareLink(pick) {
+                const url = new URL(window.location.href);
+                url.searchParams.set("picked", pick);
+                url.searchParams.set("by", getUserName());
+                url.searchParams.set("t", String(Date.now())); // cache-buster + lightweight “when”
+                return url.toString();
+            }
+            async function shareLastPick() {
+                if (!state.lastPick) return;
+                const link = shareLink(state.lastPick);
+                const text = `${getUserName()} suggests: ${state.lastPick}`;
+                // Try native share first
+                if (navigator.share) {
+                    try {
+                        await navigator.share({ title: "Dinner Decider", text, url: link });
+                        return;
+                    } catch (e) { /* fall through to copy */ }
                 }
-                animateChoice(name);
-                state.history.push(name);
-                persist();
+                // Fallback: copy to clipboard
+                try {
+                    await navigator.clipboard.writeText(`${text}\n${link}`);
+                    shareBtn.textContent = "Link copied!";
+                    setTimeout(() => shareBtn.textContent = "Share last pick", 1500);
+                } catch {
+                    alert(`${text}\n\n${link}`);
+                }
+            }
+
+            /* ===== URL intake (shared picks) ===== */
+            function showSharedFromURL() {
+                const params = new URLSearchParams(location.search);
+                const picked = params.get("picked");
+                const by = params.get("by");
+                if (!picked) return;
+                const byTxt = by ? by : "Someone";
+                sharedBanner.style.display = "block";
+                sharedBanner.innerHTML = `<strong>${byTxt}</strong> suggests: <strong>${picked}</strong>`;
             }
 
             /* ===== Init ===== */
             (function init() {
-                const saved = loadState();
+                // Restore name
+                const savedName = localStorage.getItem(NAME_KEY) || "";
+                userNameEl.value = savedName;
+                userNameEl.addEventListener("input", () => localStorage.setItem(NAME_KEY, userNameEl.value.trim()));
 
-                // Seed places list from saved or default
+                // Restore app state
+                const saved = loadState();
                 const savedPlaces = Array.isArray(saved.places) ? saved.places : null;
                 const seen = new Set();
                 const merged = (savedPlaces && savedPlaces.length ? savedPlaces.map(p => ({ name: p.name, enabled: !!p.enabled })) : DEFAULT_PLACES.map(n => ({ name: n, enabled: true })))
-                    // De-dup and keep original order
                     .filter(p => { if (seen.has(p.name)) return false; seen.add(p.name); return true; });
-
-                // If defaults contain any not in saved, append them enabled
                 DEFAULT_PLACES.forEach(n => { if (!seen.has(n)) merged.push({ name: n, enabled: true }); });
 
                 state.places = merged;
                 state.cycleBag = Array.isArray(saved.cycleBag) ? saved.cycleBag.filter(n => merged.some(p => p.name === n)) : [];
                 state.history = Array.isArray(saved.history) ? saved.history.slice(-24) : [];
                 state.noRepeats = typeof saved.noRepeats === "boolean" ? saved.noRepeats : true;
+                state.lastPick = saved.lastPick || null;
 
-                renderList();
-                renderHistory();
-                noRepeatsEl.checked = state.noRepeats;
-                choiceEl.textContent = state.history.length ? state.history[state.history.length - 1] : "—";
+                renderList(); renderHistory(); noRepeatsEl.checked = state.noRepeats;
+                choiceEl.textContent = state.lastPick || (state.history.length ? state.history[state.history.length - 1] : "—");
+                shareBtn.disabled = !state.lastPick;
 
-                // Wire controls
-                decideBtn.addEventListener("click", decide);
-                shuffleBtn.addEventListener("click", () => {
-                    shuffle(state.places);
-                    // Re-sync cycle bag order to new enabled set
-                    state.cycleBag = state.cycleBag.filter(n => currentEnabledNames().includes(n));
+                // Controls
+                decideBtn.addEventListener("click", () => {
+                    const name = pickName();
+                    if (!name) { animateChoice("No places enabled"); return; }
+                    animateChoice(name);
+                    state.history.push(name);
+                    state.lastPick = name;
                     persist();
                 });
-                enableAllBtn.addEventListener("click", () => {
-                    state.places.forEach(p => p.enabled = true);
-                    ensureCycleBag();
-                    persist();
-                });
-                disableAllBtn.addEventListener("click", () => {
-                    state.places.forEach(p => p.enabled = false);
-                    state.cycleBag = [];
-                    persist();
-                });
-                resetCycleBtn.addEventListener("click", () => {
-                    state.cycleBag = [];
-                    ensureCycleBag();
-                    persist();
-                });
-                noRepeatsEl.addEventListener("change", () => {
-                    state.noRepeats = noRepeatsEl.checked;
-                    if (state.noRepeats) { ensureCycleBag(); } else { state.cycleBag = []; }
-                    persist();
-                });
+                shareBtn.addEventListener("click", shareLastPick);
+                shuffleBtn.addEventListener("click", () => { shuffle(state.places); state.cycleBag = state.cycleBag.filter(n => currentEnabledNames().includes(n)); persist(); });
+                enableAllBtn.addEventListener("click", () => { state.places.forEach(p => p.enabled = true); ensureCycleBag(); persist(); });
+                disableAllBtn.addEventListener("click", () => { state.places.forEach(p => p.enabled = false); state.cycleBag = []; persist(); });
+                resetCycleBtn.addEventListener("click", () => { state.cycleBag = []; ensureCycleBag(); persist(); });
+                noRepeatsEl.addEventListener("change", () => { state.noRepeats = noRepeatsEl.checked; if (state.noRepeats) { ensureCycleBag(); } else { state.cycleBag = []; } persist(); });
+                document.addEventListener("keydown", (e) => { if (e.key === "Enter") { decideBtn.click(); } });
 
-                // Keyboard: Enter to decide
-                document.addEventListener("keydown", (e) => {
-                    if (e.key === "Enter") { decide(); }
-                });
+                // If someone shared a link, show it
+                showSharedFromURL();
             })();
         </script>
     </body>
