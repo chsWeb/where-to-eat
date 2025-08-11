@@ -5,6 +5,7 @@ Pick a random place to eat. Share the place with your friends. Get directions.
 
 ### Bugs
 1. Focus on user name input is causing zoom, implement meta zoom fix
+2. On mobile, the share button hijacks the keyboard and displays a share sheet. Just copy and show a toast.
 
 ### Enhancements
 1. Allow users to add new places to eat.
