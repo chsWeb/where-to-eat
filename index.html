@@ -4,7 +4,7 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
-        <title>Where to Eat</title>
+        <title>Where to Eat 2.0</title>
         <style>
             /* Colors & base */
             :root {
@@ -40,6 +40,9 @@
                 border-radius: 20px;
                 padding: 20px;
                 box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
             }
 
             /* Header */
@@ -48,7 +51,6 @@
                 align-items: center;
                 justify-content: space-between;
                 gap: 12px;
-                margin-bottom: 14px;
                 flex-wrap: wrap;
             }
 
@@ -80,14 +82,13 @@
                 display: flex;
                 flex-wrap: wrap;
                 gap: 10px;
-                margin: 14px 0 6px;
             }
 
             .btn {
                 appearance: none;
                 border: 1px solid var(--border);
                 background: #111115;
-                color: var(--ink);
+                color: #fff;
                 padding: 10px 14px;
                 border-radius: 12px;
                 cursor: pointer;
@@ -129,7 +130,6 @@
                 display: grid;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 8px;
-                margin-top: 10px;
             }
 
             @media (max-width:560px) {
@@ -180,7 +180,6 @@
 
             /* Result */
             .result {
-                margin-top: 16px;
                 padding: 16px;
                 border: 1px solid var(--border);
                 border-radius: 14px;
@@ -228,7 +227,7 @@
 
             /* Shared banner */
             .shared {
-                margin-bottom: 12px;
+                margin-bottom: 4px;
                 padding: 12px 14px;
                 border: 1px solid var(--border);
                 border-radius: 12px;
@@ -237,6 +236,58 @@
 
             .shared strong {
                 font-weight: 800;
+            }
+
+            /* Share bar */
+            .sharebar {
+                margin-top: 8px;
+                position: sticky;
+                bottom: 0;
+                background: linear-gradient(180deg, #0e0e11 0%, rgba(14, 14, 17, 0) 0%), var(--card);
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                padding: 14px;
+                display: flex;
+                gap: 10px;
+                align-items: center;
+            }
+
+            .sharebar .share-btn {
+                flex: 1;
+                padding: 14px 18px;
+                font-size: 16px;
+                border-radius: 12px;
+            }
+
+            .hint {
+                color: var(--muted);
+                font-size: 13px;
+            }
+
+            /* Toast */
+            .toast {
+                position: fixed;
+                inset: auto 0 24px 0;
+                display: flex;
+                justify-content: center;
+                pointer-events: none;
+            }
+
+            .toast .bubble {
+                background: #0f1a12;
+                color: #c6f3df;
+                border: 1px solid #1f4232;
+                padding: 10px 14px;
+                border-radius: 10px;
+                box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+                opacity: 0;
+                transform: translateY(8px);
+                transition: opacity .18s ease, transform .18s ease;
+            }
+
+            .toast.show .bubble {
+                opacity: 1;
+                transform: translateY(0);
             }
         </style>
     </head>
@@ -259,7 +310,6 @@
 
             <div class="controls">
                 <button class="btn primary" id="decideBtn" aria-live="polite">Pick for me</button>
-                <button class="btn" id="shareBtn" title="Share the last pick" disabled>Share last pick</button>
                 <button class="btn" id="shuffleBtn" title="Randomize list order">Shuffle list</button>
                 <button class="btn ghost" id="enableAllBtn" title="Enable all places">Enable all</button>
                 <button class="btn ghost" id="disableAllBtn" title="Disable all places">Disable all</button>
@@ -275,6 +325,15 @@
                 <div class="meta">Tip: toggle places to include/exclude. Use “No repeats cycle” to avoid picking the
                     same place again until all enabled options have been used.</div>
             </div>
+
+            <div class="sharebar" aria-live="polite">
+                <button class="btn primary share-btn" id="shareBtn" disabled>Copy Link to Your Pick</button>
+                <span class="hint">Friends open the link to see who suggested what.</span>
+            </div>
+        </div>
+
+        <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true">
+            <div class="bubble" id="toastMsg">Copied!</div>
         </div>
 
         <script>
@@ -317,11 +376,15 @@
             const resetCycleBtn = $("resetCycleBtn");
             const userNameEl = $("userName");
             const sharedBanner = $("sharedBanner");
+            const toast = $("toast");
+            const toastMsg = $("toastMsg");
 
             /* ===== Utils ===== */
             const randInt = (n) => Math.floor(Math.random() * n);
             const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = randInt(i + 1);[arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
             function currentEnabledNames() { return state.places.filter(p => p.enabled).map(p => p.name); }
+
+            /* Above: ensure the no-repeat bag matches enabled items */
             function ensureCycleBag() {
                 if (!state.noRepeats) { state.cycleBag = []; return; }
                 const enabled = currentEnabledNames();
@@ -332,6 +395,8 @@
                     shuffle(state.cycleBag);
                 }
             }
+
+            /* Above: pick a random enabled name, cycling without repeats if enabled */
             function pickName() {
                 const enabled = currentEnabledNames();
                 if (enabled.length === 0) return null;
@@ -342,6 +407,8 @@
                 }
                 return enabled[randInt(enabled.length)];
             }
+
+            /* Above: subtle “spin” animation for result */
             function animateChoice(toText) {
                 const spans = ["Thinking…", "Almost…", toText];
                 let i = 0;
@@ -356,6 +423,14 @@
                 step();
             }
 
+            /* Above: lightweight toast feedback */
+            function toastShow(msg = "Copied!") {
+                toastMsg.textContent = msg;
+                toast.classList.add("show");
+                clearTimeout(toast._t);
+                toast._t = setTimeout(() => toast.classList.remove("show"), 1400);
+            }
+
             /* ===== Rendering ===== */
             function renderList() {
                 listEl.innerHTML = "";
@@ -363,6 +438,7 @@
                     const id = "p_" + idx;
                     const wrap = document.createElement("div");
                     wrap.className = "item";
+
                     const cb = document.createElement("input");
                     cb.type = "checkbox"; cb.id = id; cb.checked = !!p.enabled;
                     cb.addEventListener("change", () => {
@@ -370,19 +446,26 @@
                         if (!p.enabled) { state.cycleBag = state.cycleBag.filter(n => n !== p.name); }
                         persist();
                     });
+
                     const label = document.createElement("label");
                     label.setAttribute("for", id);
+
                     const name = document.createElement("div");
                     name.className = "name"; name.textContent = p.name;
+
                     const map = document.createElement("a");
                     map.className = "map";
                     map.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(p.name);
                     map.target = "_blank"; map.rel = "noopener"; map.textContent = "Maps";
-                    label.appendChild(name); label.appendChild(map);
-                    wrap.appendChild(cb); wrap.appendChild(label);
+
+                    label.appendChild(name);
+                    label.appendChild(map);
+                    wrap.appendChild(cb);
+                    wrap.appendChild(label);
                     listEl.appendChild(wrap);
                 });
             }
+
             function renderHistory() {
                 historyEl.innerHTML = "";
                 state.history.slice(-8).reverse().forEach(n => {
@@ -391,46 +474,51 @@
                     historyEl.appendChild(t);
                 });
             }
+
+            /* Above: persist state and update UI */
             function persist() {
                 saveState({ places: state.places, cycleBag: state.cycleBag, history: state.history, noRepeats: state.noRepeats, lastPick: state.lastPick });
-                renderList(); renderHistory(); noRepeatsEl.checked = state.noRepeats;
+                renderList();
+                renderHistory();
+                noRepeatsEl.checked = state.noRepeats;
                 shareBtn.disabled = !state.lastPick;
             }
 
-            /* ===== Share ===== */
+            /* ===== Name & sharing ===== */
+
+            /* Above: return display name, fallback to “Someone” */
             function getUserName() {
                 const v = userNameEl.value.trim();
                 return v || "Someone";
             }
+
+            /* Above: build a shareable URL with name + pick */
             function shareLink(pick) {
                 const url = new URL(window.location.href);
                 url.searchParams.set("picked", pick);
                 url.searchParams.set("by", getUserName());
-                url.searchParams.set("t", String(Date.now())); // cache-buster + lightweight “when”
+                url.searchParams.set("t", String(Date.now()));
                 return url.toString();
             }
+
+            /* Above: copy link to clipboard, optional native share */
             async function shareLastPick() {
                 if (!state.lastPick) return;
                 const link = shareLink(state.lastPick);
-                const text = `${getUserName()} suggests: ${state.lastPick}`;
-                // Try native share first
-                if (navigator.share) {
-                    try {
-                        await navigator.share({ title: "Dinner Decider", text, url: link });
-                        return;
-                    } catch (e) { /* fall through to copy */ }
-                }
-                // Fallback: copy to clipboard
+
                 try {
-                    await navigator.clipboard.writeText(`${text}\n${link}`);
-                    shareBtn.textContent = "Link copied!";
-                    setTimeout(() => shareBtn.textContent = "Share last pick", 1500);
+                    await navigator.clipboard.writeText(link);
+                    toastShow("Link copied to clipboard");
                 } catch {
-                    alert(`${text}\n\n${link}`);
+                    window.prompt("Copy this link:", link);
+                }
+
+                if (navigator.share) {
+                    try { navigator.share({ title: "Dinner Decider", text: `${getUserName()} suggests: ${state.lastPick}`, url: link }); } catch (e) { /* ignore */ }
                 }
             }
 
-            /* ===== URL intake (shared picks) ===== */
+            /* Above: show banner if link includes a shared pick */
             function showSharedFromURL() {
                 const params = new URLSearchParams(location.search);
                 const picked = params.get("picked");
@@ -443,16 +531,18 @@
 
             /* ===== Init ===== */
             (function init() {
-                // Restore name
+                /* Restore name */
                 const savedName = localStorage.getItem(NAME_KEY) || "";
                 userNameEl.value = savedName;
                 userNameEl.addEventListener("input", () => localStorage.setItem(NAME_KEY, userNameEl.value.trim()));
 
-                // Restore app state
+                /* Restore app state */
                 const saved = loadState();
                 const savedPlaces = Array.isArray(saved.places) ? saved.places : null;
                 const seen = new Set();
-                const merged = (savedPlaces && savedPlaces.length ? savedPlaces.map(p => ({ name: p.name, enabled: !!p.enabled })) : DEFAULT_PLACES.map(n => ({ name: n, enabled: true })))
+                const merged = (savedPlaces && savedPlaces.length
+                    ? savedPlaces.map(p => ({ name: p.name, enabled: !!p.enabled }))
+                    : DEFAULT_PLACES.map(n => ({ name: n, enabled: true })))
                     .filter(p => { if (seen.has(p.name)) return false; seen.add(p.name); return true; });
                 DEFAULT_PLACES.forEach(n => { if (!seen.has(n)) merged.push({ name: n, enabled: true }); });
 
@@ -462,11 +552,13 @@
                 state.noRepeats = typeof saved.noRepeats === "boolean" ? saved.noRepeats : true;
                 state.lastPick = saved.lastPick || null;
 
-                renderList(); renderHistory(); noRepeatsEl.checked = state.noRepeats;
+                renderList();
+                renderHistory();
+                noRepeatsEl.checked = state.noRepeats;
                 choiceEl.textContent = state.lastPick || (state.history.length ? state.history[state.history.length - 1] : "—");
                 shareBtn.disabled = !state.lastPick;
 
-                // Controls
+                /* Wire controls */
                 decideBtn.addEventListener("click", () => {
                     const name = pickName();
                     if (!name) { animateChoice("No places enabled"); return; }
@@ -475,6 +567,7 @@
                     state.lastPick = name;
                     persist();
                 });
+
                 shareBtn.addEventListener("click", shareLastPick);
                 shuffleBtn.addEventListener("click", () => { shuffle(state.places); state.cycleBag = state.cycleBag.filter(n => currentEnabledNames().includes(n)); persist(); });
                 enableAllBtn.addEventListener("click", () => { state.places.forEach(p => p.enabled = true); ensureCycleBag(); persist(); });
@@ -483,7 +576,7 @@
                 noRepeatsEl.addEventListener("change", () => { state.noRepeats = noRepeatsEl.checked; if (state.noRepeats) { ensureCycleBag(); } else { state.cycleBag = []; } persist(); });
                 document.addEventListener("keydown", (e) => { if (e.key === "Enter") { decideBtn.click(); } });
 
-                // If someone shared a link, show it
+                /* If someone shared a link, show it */
                 showSharedFromURL();
             })();
         </script>
