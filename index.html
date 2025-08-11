@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Dinner Decider</title>
+        <style>
+            /* Root variables */
+            :root {
+                --bg: #0e0e11;
+                --card: #17171c;
+                --ink: #e9e9ee;
+                --muted: #a7a7b0;
+                --accent: #6ee7b7;
+                --danger: #ff7a7a;
+                --border: #22222a;
+            }
+
+            /* Page base */
+            html,
+            body {
+                height: 100%;
+            }
+
+            body {
+                margin: 0;
+                background: var(--bg);
+                color: var(--ink);
+                font: 16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+                display: grid;
+                place-items: center;
+                padding: 24px;
+            }
+
+            /* App container */
+            .app {
+                width: 100%;
+                max-width: 720px;
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 20px;
+                padding: 20px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+            }
+
+            /* Header */
+            .header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                margin-bottom: 14px;
+            }
+
+            .title {
+                font-size: 20px;
+                font-weight: 700;
+                letter-spacing: .2px;
+            }
+
+            /* Controls row */
+            .controls {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                margin: 14px 0 6px;
+            }
+
+            .btn {
+                appearance: none;
+                border: 1px solid var(--border);
+                background: #111115;
+                color: var(--ink);
+                padding: 10px 14px;
+                border-radius: 12px;
+                cursor: pointer;
+                transition: transform .05s ease, background .2s ease;
+                font-weight: 600;
+            }
+
+            .btn:hover {
+                background: #14141a;
+            }
+
+            .btn:active {
+                transform: translateY(1px);
+            }
+
+            .btn.primary {
+                background: var(--accent);
+                color: #0b0f0d;
+                border-color: transparent;
+            }
+
+            .btn.primary:hover {
+                filter: brightness(1.05);
+            }
+
+            .btn.ghost {
+                background: transparent;
+            }
+
+            .btn.danger {
+                background: transparent;
+                border-color: #382022;
+                color: #ffb3b3;
+            }
+
+            /* Places list */
+            .list {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+                margin-top: 10px;
+            }
+
+            @media (max-width:560px) {
+                .list {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            /* Place item */
+            .item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px;
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                background: #121218;
+            }
+
+            .item input {
+                width: 18px;
+                height: 18px;
+                accent-color: var(--accent);
+            }
+
+            .item label {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                width: 100%;
+                cursor: pointer;
+            }
+
+            .item .name {
+                font-weight: 600;
+            }
+
+            .item .map {
+                font-size: 13px;
+                color: var(--muted);
+                text-decoration: none;
+                border-bottom: 1px dashed #3a3a44;
+            }
+
+            .item .map:hover {
+                color: #d7d7de;
+            }
+
+            /* Result card */
+            .result {
+                margin-top: 16px;
+                padding: 16px;
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                background: linear-gradient(180deg, #13131a, #101017);
+            }
+
+            .result .label {
+                color: var(--muted);
+                font-size: 14px;
+                margin-bottom: 6px;
+            }
+
+            .result .choice {
+                font-size: 28px;
+                font-weight: 800;
+                letter-spacing: .2px;
+            }
+
+            .spin {
+                display: inline-block;
+                will-change: transform;
+            }
+
+            /* Footnote/help */
+            .meta {
+                margin-top: 10px;
+                color: var(--muted);
+                font-size: 13px;
+            }
+
+            /* History */
+            .history {
+                margin-top: 12px;
+                color: var(--muted);
+                font-size: 14px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            .tag {
+                padding: 4px 8px;
+                background: #101015;
+                border: 1px solid var(--border);
+                border-radius: 999px;
+            }
+
+            /* Switch row */
+            .switch {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--muted);
+                font-size: 14px;
+            }
+
+            .switch input {
+                width: 38px;
+                height: 22px;
+                accent-color: var(--accent);
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="app" role="application" aria-label="Dinner Decider">
+            <div class="header">
+                <div class="title">Dinner Decider</div>
+                <label class="switch" title="Avoid repeats until all enabled are used">
+                    <input type="checkbox" id="noRepeats" />
+                    <span>No repeats cycle</span>
+                </label>
+            </div>
+
+            <div class="controls">
+                <button class="btn primary" id="decideBtn" aria-live="polite">Pick for me</button>
+                <button class="btn" id="shuffleBtn" title="Randomize list order">Shuffle list</button>
+                <button class="btn ghost" id="enableAllBtn" title="Enable all places">Enable all</button>
+                <button class="btn ghost" id="disableAllBtn" title="Disable all places">Disable all</button>
+                <button class="btn danger" id="resetCycleBtn" title="Reset the no-repeats cycle">Reset cycle</button>
+            </div>
+
+            <div class="list" id="placesList" role="group" aria-label="Places to choose from"></div>
+
+            <div class="result" aria-live="polite" aria-atomic="true">
+                <div class="label">Tonight’s pick</div>
+                <div class="choice"><span class="spin" id="choiceText">—</span></div>
+                <div class="history" id="historyRow" aria-label="Recent picks"></div>
+                <div class="meta">Tip: toggle places to include/exclude. Use “No repeats cycle” to avoid picking the
+                    same place again until all enabled options have been used.</div>
+            </div>
+        </div>
+
+        <script>
+            /* ===== Config ===== */
+            const DEFAULT_PLACES = [
+                "The Grocery",
+                "The Archer",
+                "Franny and the Fox",
+                "Palato",
+                "Tuttis",
+                "Cleats"
+            ];
+
+            /* ===== State & Storage ===== */
+            const STORE_KEY = "dinner-decider-v1";
+            const loadState = () => {
+                try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; }
+            };
+            const saveState = (s) => localStorage.setItem(STORE_KEY, JSON.stringify(s));
+
+            const state = {
+                places: [],          // [{name, enabled}]
+                cycleBag: [],        // names left in current no-repeat cycle
+                history: [],         // last n picks
+                noRepeats: true
+            };
+
+            /* ===== DOM ===== */
+            const $ = (id) => document.getElementById(id);
+            const listEl = $("placesList");
+            const choiceEl = $("choiceText");
+            const historyEl = $("historyRow");
+            const noRepeatsEl = $("noRepeats");
+            const decideBtn = $("decideBtn");
+            const shuffleBtn = $("shuffleBtn");
+            const enableAllBtn = $("enableAllBtn");
+            const disableAllBtn = $("disableAllBtn");
+            const resetCycleBtn = $("resetCycleBtn");
+
+            /* ===== Utilities ===== */
+            const randInt = (n) => Math.floor(Math.random() * n);
+            const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = randInt(i + 1);[arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+
+            function currentEnabledNames() {
+                return state.places.filter(p => p.enabled).map(p => p.name);
+            }
+
+            function ensureCycleBag() {
+                if (!state.noRepeats) { state.cycleBag = []; return; }
+                const enabled = currentEnabledNames();
+                // If bag is empty or has names not in enabled anymore, rebuild
+                const missing = enabled.some(n => !state.cycleBag.includes(n));
+                const extra = state.cycleBag.some(n => !enabled.includes(n));
+                if (state.cycleBag.length === 0 || missing || extra) {
+                    state.cycleBag = [...enabled];
+                    shuffle(state.cycleBag);
+                }
+            }
+
+            function pickName() {
+                const enabled = currentEnabledNames();
+                if (enabled.length === 0) return null;
+
+                if (state.noRepeats) {
+                    ensureCycleBag();
+                    if (state.cycleBag.length === 0) { // rebuild when exhausted
+                        state.cycleBag = [...enabled];
+                        shuffle(state.cycleBag);
+                    }
+                    const name = state.cycleBag.splice(0, 1)[0];
+                    return name || null;
+                } else {
+                    return enabled[randInt(enabled.length)];
+                }
+            }
+
+            function animateChoice(toText) {
+                // Simple “spin” effect
+                const spans = ["Thinking…", "Almost…", toText];
+                let i = 0;
+                const step = () => {
+                    choiceEl.textContent = spans[i++];
+                    choiceEl.style.transform = "scale(1.00)";
+                    choiceEl.offsetHeight; // reflow
+                    choiceEl.style.transition = "transform 220ms ease";
+                    choiceEl.style.transform = "scale(1.06)";
+                    if (i < spans.length) { setTimeout(step, i === 2 ? 70 : 240); }
+                };
+                step();
+            }
+
+            function renderList() {
+                listEl.innerHTML = "";
+                state.places.forEach((p, idx) => {
+                    const id = "p_" + idx;
+                    const wrap = document.createElement("div");
+                    wrap.className = "item";
+                    const cb = document.createElement("input");
+                    cb.type = "checkbox";
+                    cb.id = id;
+                    cb.checked = !!p.enabled;
+                    cb.addEventListener("change", () => {
+                        p.enabled = cb.checked;
+                        // Remove from cycle bag if disabled
+                        if (!p.enabled) {
+                            state.cycleBag = state.cycleBag.filter(n => n !== p.name);
+                        }
+                        persist();
+                    });
+
+                    const label = document.createElement("label");
+                    label.setAttribute("for", id);
+                    const name = document.createElement("div");
+                    name.className = "name";
+                    name.textContent = p.name;
+
+                    const map = document.createElement("a");
+                    map.className = "map";
+                    map.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(p.name);
+                    map.target = "_blank";
+                    map.rel = "noopener";
+                    map.textContent = "Maps";
+
+                    label.appendChild(name);
+                    label.appendChild(map);
+                    wrap.appendChild(cb);
+                    wrap.appendChild(label);
+                    listEl.appendChild(wrap);
+                });
+            }
+
+            function renderHistory() {
+                historyEl.innerHTML = "";
+                state.history.slice(-8).reverse().forEach(n => {
+                    const t = document.createElement("span");
+                    t.className = "tag";
+                    t.textContent = n;
+                    historyEl.appendChild(t);
+                });
+            }
+
+            function persist() {
+                saveState({
+                    places: state.places,
+                    cycleBag: state.cycleBag,
+                    history: state.history,
+                    noRepeats: state.noRepeats
+                });
+                renderList();
+                renderHistory();
+                noRepeatsEl.checked = state.noRepeats;
+            }
+
+            function decide() {
+                const name = pickName();
+                if (!name) {
+                    animateChoice("No places enabled");
+                    return;
+                }
+                animateChoice(name);
+                state.history.push(name);
+                persist();
+            }
+
+            /* ===== Init ===== */
+            (function init() {
+                const saved = loadState();
+
+                // Seed places list from saved or default
+                const savedPlaces = Array.isArray(saved.places) ? saved.places : null;
+                const seen = new Set();
+                const merged = (savedPlaces && savedPlaces.length ? savedPlaces.map(p => ({ name: p.name, enabled: !!p.enabled })) : DEFAULT_PLACES.map(n => ({ name: n, enabled: true })))
+                    // De-dup and keep original order
+                    .filter(p => { if (seen.has(p.name)) return false; seen.add(p.name); return true; });
+
+                // If defaults contain any not in saved, append them enabled
+                DEFAULT_PLACES.forEach(n => { if (!seen.has(n)) merged.push({ name: n, enabled: true }); });
+
+                state.places = merged;
+                state.cycleBag = Array.isArray(saved.cycleBag) ? saved.cycleBag.filter(n => merged.some(p => p.name === n)) : [];
+                state.history = Array.isArray(saved.history) ? saved.history.slice(-24) : [];
+                state.noRepeats = typeof saved.noRepeats === "boolean" ? saved.noRepeats : true;
+
+                renderList();
+                renderHistory();
+                noRepeatsEl.checked = state.noRepeats;
+                choiceEl.textContent = state.history.length ? state.history[state.history.length - 1] : "—";
+
+                // Wire controls
+                decideBtn.addEventListener("click", decide);
+                shuffleBtn.addEventListener("click", () => {
+                    shuffle(state.places);
+                    // Re-sync cycle bag order to new enabled set
+                    state.cycleBag = state.cycleBag.filter(n => currentEnabledNames().includes(n));
+                    persist();
+                });
+                enableAllBtn.addEventListener("click", () => {
+                    state.places.forEach(p => p.enabled = true);
+                    ensureCycleBag();
+                    persist();
+                });
+                disableAllBtn.addEventListener("click", () => {
+                    state.places.forEach(p => p.enabled = false);
+                    state.cycleBag = [];
+                    persist();
+                });
+                resetCycleBtn.addEventListener("click", () => {
+                    state.cycleBag = [];
+                    ensureCycleBag();
+                    persist();
+                });
+                noRepeatsEl.addEventListener("change", () => {
+                    state.noRepeats = noRepeatsEl.checked;
+                    if (state.noRepeats) { ensureCycleBag(); } else { state.cycleBag = []; }
+                    persist();
+                });
+
+                // Keyboard: Enter to decide
+                document.addEventListener("keydown", (e) => {
+                    if (e.key === "Enter") { decide(); }
+                });
+            })();
+        </script>
+    </body>
+
+</html>
