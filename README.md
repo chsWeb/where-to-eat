@@ -15,3 +15,4 @@ Pick a random place to eat. Share the place with your friends. Get directions.
 5. Change "Pick for Me" to somehting better.
 6. Fix lable on no repeats checkbox.
 7. increase contrast on name entry.
+8. Ability to set dietary preferences
